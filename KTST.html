@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>数学トレーニング（復習付き）</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 10px; background: #f0f2f5; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); text-align: center; }
+        .timer { font-size: 1.5em; font-weight: bold; color: #e74c3c; margin: 10px; }
+        .question-box { margin-bottom: 20px; padding: 20px; background: #fafafa; border-left: 5px solid #3498db; font-size: 1.3em; }
+        .options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .option-btn { padding: 15px; cursor: pointer; border: 1px solid #ddd; border-radius: 5px; background: white; font-size: 1em; }
+        .option-btn.correct { background: #d4edda; border-color: #28a745; }
+        .option-btn.wrong { background: #f8d7da; border-color: #dc3545; }
+        .hidden { display: none; }
+        button.primary { padding: 15px 30px; background: #3498db; color: white; border: none; border-radius: 25px; cursor: pointer; font-size: 1.1em; }
+        button.secondary { padding: 15px 30px; background: #2ecc71; color: white; border: none; border-radius: 25px; cursor: pointer; font-size: 1.1em; margin: 10px; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <div id="start-screen">
+        <h1>KTST</h1>
+        <p>制限時間：3分</p>
+        <button class="primary" onclick="startQuiz(false)">テスト開始！</button>
+    </div>
+    <div id="quiz-screen" class="hidden">
+        <div id="timer" class="timer">03:00</div>
+        <p id="review-msg" style="color:orange; font-weight:bold;" class="hidden">【復讐タイム】類題に挑戦！</p>
+        <p id="progress"></p>
+        <div id="question-area"></div>
+    </div>
+    <div id="result-screen" class="hidden">
+        <h1 id="res-title">終了！</h1>
+        <p id="score" style="font-size: 1.5em;"></p>
+        <button id="rev-btn" class="secondary hidden" onclick="startQuiz(true)"></button>
+        <button class="primary" onclick="location.reload()">最初から</button>
+    </div>
+</div>
+<script>
+let timeLeft = 180, currentIdx = 0, score = 0, timerId, questions = [], wrongPats = [];
+const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+function createQ(p) {
+    let a, b, c, d, ans, opts;
+    if(p==1) { a=rand(2,15); b=rand(2,15); ans=-(a+b); return {p:1, q:`-${a}+(-${b})`, ans:ans, opts:[ans, -(a-b), a+b, 0]}; }
+    if(p==2) { a=rand(2,15); b=rand(2,15); ans=-(a+b); return {p:2, q:`(-${a})-(+${b})`, ans:ans, opts:[ans, b-a, a-b, a+b]}; }
+    if(p==3) { a=rand(2,5); b=rand(1,9); c=rand(2,5); d=rand(1,9); ans=`${a+c}a ${b-d>=0?'+':''}${b-d}`; return {p:3, q:`(${a}a+${b})+(${c}a-${d})`, ans:ans, opts:[ans, `${a+c}a+${b+d}`, `${a-c}a+${b-d}`, `${a+c}a`]}; }
+    if(p==4) { a=rand(5,9); b=rand(1,5); c=rand(1,4); d=rand(1,5); ans=`${a-c}x+${b+d}`; return {p:4, q:`(${a}x+${b})-(${c}x-${d})`, ans:ans, opts:[ans, `${a-c}x+${b-d}`, `${a+c}x+${b+d}`, `${a-c}x-${b+d}`]}; }
+    if(p==5) { a=rand(3,9); b=rand(3,9); ans=a*b; return {p:5, q:`(-${a})×(-${b})`, ans:ans, opts:[ans, -ans, a+b, -(a+b)]}; }
+    if(p==6) { b=rand(2,9); a=rand(2,9); ans=-a; return {p:6, q:`(-${a*b})÷(+${b})`, ans:ans, opts:[ans, a, -(a*b-b), -1]}; }
+    if(p==7) { a=rand(2,9); b=rand(2,5); ans=`-${a*b}a`; return {p:7, q:`${a}a×(-${b})`, ans:ans, opts:[ans, `${a*b}a`, `-${a-b}a`, `0`]}; }
+    if(p==8) { b=rand(2,6); a=rand(2,9); ans=`-${a}x`; return {p:8, q:`-${a*b}x÷${b}`, ans:ans, opts:[ans, `${a}x`, `-${a}`, -a*b*b+"x"]}; }
+    if(p==9) { a=rand(5,9); b=rand(2,5); c=rand(1,4); ans=a-b-c; return {p:9, q:`(+${a})+(-${b})+(-${c})`, ans:ans, opts:[ans, -(a+b+c), a+b+c, 0]}; }
+    if(p==10){ let s=[[6,15,-20,-8],[8,12,-9,-6],[10,25,-15,-6]][rand(0,2)]; return {p:10, q:`${s[0]}÷${s[1]}×(${s[2]})`, ans:s[3], opts:[s[3], -s[3], rand(-10,10), 0]}; }
+}
+function startQuiz(isRev) {
+    if(isRev) { questions = wrongPats.map(p => createQ(p)); document.getElementById('review-msg').classList.remove('hidden'); }
+    else { questions=[]; for(let i=1; i<=10; i++) questions.push(createQ(i)); clearInterval(timerId); timeLeft=180; startTimer(); document.getElementById('review-msg').classList.add('hidden'); }
+    currentIdx=0; score=0; wrongPats=[];
+    document.getElementById('start-screen').classList.add('hidden');
+    document.getElementById('result-screen').classList.add('hidden');
+    document.getElementById('quiz-screen').classList.remove('hidden');
+    showQ();
+}
+function startTimer() {
+    timerId = setInterval(() => {
+        timeLeft--;
+        let m=Math.floor(timeLeft/60), s=timeLeft%60;
+        document.getElementById('timer').innerText = `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;
+        if(timeLeft<=0) endQuiz();
+    }, 1000);
+}
+function showQ() {
+    const q=questions[currentIdx];
+    document.getElementById('progress').innerText = `問 ${currentIdx+1} / ${questions.length}`;
+    let h = `<div class="question-box"><h3>${q.q}</h3></div><div class="options">`;
+    [...q.opts].sort(()=>Math.random()-0.5).forEach(o => { h += `<button class="option-btn" onclick="check('${o}','${q.ans}',${q.p},this)">${o}</button>`; });
+    document.getElementById('question-area').innerHTML = h + `</div>`;
+}
+function check(s, c, p, b) {
+    document.querySelectorAll('.option-btn').forEach(btn => btn.disabled=true);
+    if(String(s)===String(c)) { score++; b.classList.add('correct'); }
+    else { b.classList.add('wrong'); wrongPats.push(p); }
+    setTimeout(() => { currentIdx++; if(currentIdx<questions.length) showQ(); else endQuiz(); }, 700);
+}
+function endQuiz() {
+    document.getElementById('quiz-screen').classList.add('hidden');
+    document.getElementById('result-screen').classList.remove('hidden');
+    document.getElementById('score').innerText = `${score} / ${questions.length} 点`;
+    if(wrongPats.length==0) { document.getElementById('res-title').innerText="満点！🎉"; document.getElementById('rev-btn').classList.add('hidden'); clearInterval(timerId); }
+    else { document.getElementById('res-title').innerText="終了"; document.getElementById('rev-btn').classList.remove('hidden'); document.getElementById('rev-btn').innerText=`${wrongPats.length}問を復讐する`; }
+}
+</script>
+</body>
+</html>
